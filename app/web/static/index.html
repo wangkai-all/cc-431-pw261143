@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paired analysis console — synthetic trial</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <div class="brand">
+        <h1>Paired analysis console</h1>
+        <small>Synthetic, pre-registered pairing · complete-case and sensitivity kept separate</small>
+      </div>
+      <div class="health" id="health" aria-live="polite"></div>
+      <button class="btn small" id="theme-toggle" type="button" title="Toggle light/dark">Theme</button>
+      <button class="btn small" id="seed-demo" type="button">Load synthetic data</button>
+    </div>
+  </header>
+
+  <main class="shell main">
+    <div class="banner" id="global-banner" role="status" hidden></div>
+
+    <!-- 1 · observations -->
+    <section class="section" id="observations-section">
+      <div class="section-head">
+        <span class="step-label"><span class="step-num">1</span> Observations</span>
+        <h2>Observation registry</h2>
+        <p>Covariates are registered before pairing. Outcomes are separate, revision-tracked
+          measurements. Missing is the absence of a value — it is never written as zero.</p>
+        <p class="help" id="obs-fingerprint" style="margin-top:10px"></p>
+      </div>
+      <div class="section-body">
+        <div class="kpi-row" id="obs-kpis"></div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Register an observation</h3>
+            <span class="tag">covariates only</span>
+          </div>
+          <form id="register-form" class="row" autocomplete="off">
+            <div class="field"><label for="reg-code">Subject code</label>
+              <input id="reg-code" name="subject_code" required maxlength="64" placeholder="SYN-200" style="width:130px"></div>
+            <div class="field"><label for="reg-site">Site</label>
+              <select id="reg-site" name="site"><option>north</option><option>harbour</option><option>valley</option></select></div>
+            <div class="field"><label for="reg-band">Severity band</label>
+              <select id="reg-band" name="severity_band"><option>mild</option><option>moderate</option><option>severe</option></select></div>
+            <div class="field"><label for="reg-arm">Arm</label>
+              <select id="reg-arm" name="arm"><option>intervention</option><option>control</option></select></div>
+            <div class="field"><label for="reg-baseline">Baseline ROM (°)</label>
+              <input id="reg-baseline" name="baseline_rom" type="number" step="0.1" min="0" max="90" required placeholder="48.0"></div>
+            <div class="field" style="align-self:end"><label>&nbsp;</label>
+              <button class="btn primary" type="submit">Register</button></div>
+          </form>
+          <p class="error-text" id="register-error" role="alert" hidden></p>
+        </div>
+
+        <div class="card pad-0">
+          <div class="card-head" style="padding:14px 18px 0; margin-bottom:8px;">
+            <h3>Participants &amp; outcome status</h3>
+            <div class="row">
+              <div class="field"><label for="filter-site">Site</label>
+                <select id="filter-site"><option value="">All</option><option>north</option><option>harbour</option><option>valley</option></select></div>
+              <div class="field"><label for="filter-arm">Arm</label>
+                <select id="filter-arm"><option value="">All</option><option>intervention</option><option>control</option></select></div>
+              <div class="field"><label for="filter-missing">Outcome</label>
+                <select id="filter-missing"><option value="">All</option><option value="missing_rom">ROM missing</option><option value="corrected">Corrected</option><option value="withdrawn">Withdrawn</option></select></div>
+            </div>
+          </div>
+          <div class="table-wrap scroll">
+            <table id="obs-table">
+              <thead><tr>
+                <th>Subject</th><th>Cell</th><th>Arm</th><th class="num">Baseline ROM</th>
+                <th>ROM week 12</th><th>Pain week 12</th><th>History</th><th></th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <p class="help">Corrections append a revision and require a note. Withdrawals keep the old value in
+          history and mark the outcome missing. Both change the observation fingerprint, so any later analysis
+          is visibly bound to different bytes.</p>
+      </div>
+    </section>
+
+    <!-- 2 · pairing -->
+    <section class="section" id="pairing-section">
+      <div class="section-head">
+        <span class="step-label"><span class="step-num">2</span> Pairing</span>
+        <h2>Pair construction</h2>
+        <p>The matcher sees covariates only. Cells, caliper and tie-break seed are declared before outcomes
+          are read. Every plan version is locked: a revision is a new, reasoned version.</p>
+      </div>
+      <div class="section-body">
+        <div class="banner" id="pair-feed-banner" hidden></div>
+
+        <div class="card">
+          <div class="card-head"><h3>Declared matching policy</h3><span class="tag">no outcome input</span></div>
+          <form id="plan-form" class="form-grid" autocomplete="off">
+            <div class="field span-2"><label>Exact-match cells</label>
+              <div class="row" style="gap:16px; font-size:13px; min-height:31px;">
+                <label class="row" style="gap:5px"><input type="checkbox" name="match_fields" value="site" checked> site</label>
+                <label class="row" style="gap:5px"><input type="checkbox" name="match_fields" value="severity_band" checked> severity band</label>
+              </div>
+            </div>
+            <div class="field"><label for="policy-caliper">Caliper on baseline ROM (°)</label>
+              <input id="policy-caliper" name="caliper" type="number" step="0.5" min="0.5" max="90" value="8"></div>
+            <div class="field"><label for="policy-seed">Tie-break seed</label>
+              <input id="policy-seed" name="tie_break_seed" type="number" step="1" value="20260101"></div>
+            <div class="field span-2" id="plan-reason-field"><label for="plan-reason">Reason for this version</label>
+              <input id="plan-reason" name="reason" required placeholder="e.g. pre-declared protocol v1 policy" value="Pre-declared protocol policy, built before outcomes were read"></div>
+            <div class="field"><label>&nbsp;</label>
+              <button class="btn primary" type="submit">Build plan version</button></div>
+          </form>
+          <p class="error-text" id="plan-error" role="alert" hidden></p>
+          <p class="help" style="margin-top:8px">Nearest eligible control within the caliper. Exact ties are broken by a
+            fixed hash of the seed and subject id and are recorded on the pair.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Plan versions</h3>
+            <span class="help" id="plan-latest-label"></span>
+          </div>
+          <div id="plan-versions"></div>
+        </div>
+
+        <div id="plan-detail"></div>
+      </div>
+    </section>
+
+    <!-- 3 · analysis -->
+    <section class="section" id="analysis-section">
+      <div class="section-head">
+        <span class="step-label"><span class="step-num">3</span> Analysis</span>
+        <h2>Complete-case &amp; sensitivity</h2>
+        <p>A complete-pair estimate carries no missing-data assumption. Sensitivity analyses are reported
+          separately, each with its assumption stated, and are never pooled into the complete-case result.</p>
+      </div>
+      <div class="section-body">
+        <div class="card">
+          <div class="card-head"><h3>Run an analysis</h3><span class="help">Inputs are hashed before any arithmetic</span></div>
+          <form id="analysis-form" class="form-grid" autocomplete="off">
+            <div class="field"><label for="an-plan">Plan version</label>
+              <select id="an-plan"></select></div>
+            <div class="field"><label for="an-outcome">Outcome</label>
+              <select id="an-outcome"><option value="rom_week12">ROM at week 12</option><option value="pain_week12">Pain at week 12</option></select></div>
+            <div class="field"><label for="an-alpha">Alpha</label>
+              <input id="an-alpha" type="number" step="0.01" min="0.01" max="0.2" value="0.05"></div>
+            <div class="field"><label for="an-mi-draws">MI draws</label>
+              <input id="an-mi-draws" type="number" step="1" min="2" max="200" value="20"></div>
+            <div class="field"><label for="an-mi-seed">MI seed</label>
+              <input id="an-mi-seed" type="number" step="1" value="424242"></div>
+            <div class="field"><label for="an-bound-low">Missing-contrast bounds</label>
+              <div class="row" style="gap:6px">
+                <input id="an-bound-low" type="number" step="0.5" placeholder="low" style="width:74px">
+                <input id="an-bound-high" type="number" step="0.5" placeholder="high" style="width:74px">
+              </div>
+            </div>
+            <div class="field" style="align-self:end"><label>&nbsp;</label>
+              <button class="btn primary" type="submit">Run analysis</button></div>
+          </form>
+          <p class="error-text" id="analysis-error" role="alert" hidden></p>
+          <p class="help" style="margin-top:8px">Missing-contrast bounds apply only to the sensitivity bound, never to
+            the complete-case estimate. Leave them empty to use the outcome's full plausible range, which is the
+            widest declared bound and is reported as such.</p>
+        </div>
+
+        <div id="analysis-result"></div>
+
+        <div class="card">
+          <div class="card-head">
+            <h3>Runs &amp; recovery</h3>
+            <div class="row">
+              <span class="help" id="fault-status"></span>
+              <button class="btn small ghost" id="fault-toggle" type="button">Inject interruption at summarise</button>
+            </div>
+          </div>
+          <div id="runs-table"></div>
+          <p class="help" style="margin-top:10px">An interrupted run keeps its stage checkpoints, each bound to an
+            input hash. “Resume” re-hashes the current inputs and reuses only matching checkpoints; if the
+            observations were corrected or the plan replaced in between, it refuses and asks for a new run.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3>Compare two runs</h3></div>
+          <div class="row" style="margin-bottom:10px">
+            <div class="field"><label for="cmp-a">Run A</label><select id="cmp-a"></select></div>
+            <div class="field"><label for="cmp-b">Run B</label><select id="cmp-b"></select></div>
+            <button class="btn small" id="cmp-run" type="button">Compare</button>
+          </div>
+          <div id="compare-result"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h3>Scope &amp; interpretation</h3></div>
+          <ul class="secondary" style="font-size:13px; margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px;">
+            <li>All numbers are computed from deterministic synthetic data. No model is trained.</li>
+            <li>The estimate is an association within the matched sample under the declared policy; it is not a causal effect estimate.</li>
+            <li>Pairs outside the caliper and participants without a partner are excluded and listed, never substituted.</li>
+            <li>Missing outcomes are excluded from the complete-case analysis and handled only in the labelled sensitivity section.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <footer class="shell" style="padding-left:0; padding-right:0;">
+      Built from an empty directory · synthetic data only · all randomness fixed by seed.
+    </footer>
+  </main>
+
+  <div class="tooltip" id="tooltip" role="tooltip"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
